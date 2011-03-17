@@ -64,10 +64,7 @@ function drawTunnelIndicator(indicatorDist) {
 
 function update() {
     initialLineAngle = (initialLineAngle + Math.PI/200) % (Math.PI*2);
-    indicatorDist -= 20;
-    if (indicatorDist < 0) {
-	indicatorDist = lightDist;
-    }
+    indicatorDist = (indicatorDist + 20) % lightDist;
     drawTunnel();
     drawTunnelIndicator(indicatorDist);
 }

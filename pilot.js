@@ -1,5 +1,4 @@
 var socket;
-var drawingContext;
 var canvasHeight;
 var canvasWidth;
 var maxTunnelRadius;
@@ -7,11 +6,8 @@ var numTunnelLines = 6;
 var updateTime = 20;
 
 var initialLineAngle = 0;
-
-var lightDist = 1000;
-var shipX=0, shipY=0;
-var cameraX=0, cameraY=0;
-var indicatorDist = 1000;
+var player;
+var drawingContext;
 
 function drawCircle(context, x, y, r, borderstyle, fillstyle) {
     context.beginPath();
@@ -29,44 +25,59 @@ function drawCircle(context, x, y, r, borderstyle, fillstyle) {
     }
 }
 
-function drawTunnel() { // relative to tunnel center
-    drawingContext.clearRect(0, 0, cameraX*2, cameraY*2);
+function Gunner() {
+    this.lightDist = 1000;
+    this.shipX = 0;
+    this.shipY = 0;
+    this.cameraX = 0;
+    this.cameraY = 0;
+    this.indicatorDist = 1000;
 
-    // the light is at the end of the tunnel
-    // relative to canvas topleft
-    var lightX = -shipX + cameraX;
-    var lightY = -shipY + cameraY;
-
-    drawCircle(drawingContext, lightX, lightY, 3, '#fff', '#0f0');
-    var angleDiff = Math.PI * 2 / numTunnelLines;
-    var currentAngle = initialLineAngle;
-
-    drawingContext.beginPath();
-    for (var i=0; i < numTunnelLines; i++) {
-	drawingContext.moveTo(lightX, lightY);
-	drawingContext.lineTo(maxTunnelRadius * Math.cos(currentAngle) + cameraX,
-			      maxTunnelRadius * Math.sin(currentAngle) + cameraY);
-	currentAngle += angleDiff;
+    this.update = function() {
+	initialLineAngle = (initialLineAngle + Math.PI/200) % (Math.PI*2);
+	console.log(this);
+	this.indicatorDist = (this.indicatorDist + 20) % this.lightDist;
+	this.drawTunnel();
+	this.drawTunnelIndicator(this.indicatorDist);
     }
-    drawingContext.closePath();
-    drawingContext.lineWidth = 1;
-    drawingContext.strokeStyle = '#444';
-    drawingContext.stroke();
-}
 
-function drawTunnelIndicator(indicatorDist) {
-    var proportion = Math.sqrt(indicatorDist) / Math.sqrt(lightDist);
-    var indicatorRadius = (1 - proportion) * maxTunnelRadius;
-    var indicatorX = proportion * -shipX + cameraX;
-    var indicatorY = proportion * -shipY + cameraY;
-    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius, '#999');
-}
+    this.drawTunnelIndicator = function(indicatorDist) {
+	var proportion = Math.sqrt(indicatorDist) / Math.sqrt(this.lightDist);
+	var indicatorRadius = (1 - proportion) * maxTunnelRadius;
+	var indicatorX = proportion * -this.shipX + this.cameraX;
+	var indicatorY = proportion * -this.shipY + this.cameraY;
+	drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius, '#999');
+    }
 
+    this.drawTunnel = function() { // relative to tunnel center
+	drawingContext.clearRect(0, 0, this.cameraX*2, this.cameraY*2);
+
+	// the light is at the end of the tunnel
+	// relative to canvas topleft
+	var lightX = -this.shipX + this.cameraX;
+	var lightY = -this.shipY + this.cameraY;
+
+	drawCircle(drawingContext, lightX, lightY, 3, '#fff', '#0f0');
+	var angleDiff = Math.PI * 2 / numTunnelLines;
+	var currentAngle = initialLineAngle;
+
+	drawingContext.beginPath();
+	for (var i=0; i < numTunnelLines; i++) {
+	    drawingContext.moveTo(lightX, lightY);
+	    drawingContext.lineTo(maxTunnelRadius * Math.cos(currentAngle) + this.cameraX,
+				  maxTunnelRadius * Math.sin(currentAngle) + this.cameraY);
+	    currentAngle += angleDiff;
+	}
+	drawingContext.closePath();
+	drawingContext.lineWidth = 1;
+	drawingContext.strokeStyle = '#444';
+	drawingContext.stroke();
+    }
+    
+
+}
 function update() {
-    initialLineAngle = (initialLineAngle + Math.PI/200) % (Math.PI*2);
-    indicatorDist = (indicatorDist + 20) % lightDist;
-    drawTunnel();
-    drawTunnelIndicator(indicatorDist);
+    player.update();
 }
 
 function init() {
@@ -78,7 +89,7 @@ function init() {
     maxTunnelRadius = Math.sqrt(Math.pow(maincanvas.height, 2),
 				Math.pow(maincanvas.width, 2));
     drawingContext = maincanvas.getContext('2d');
-
+    
 
     socket = new io.Socket('10.41.64.64', {port: 8080});
 
@@ -96,13 +107,17 @@ function init() {
 	    alert('client disconnect');
 	});
 
-    setInterval(update, updateTime);
 
+    player = new Gunner();
+    player.cameraX = cameraX;
+    player.cameraY = cameraY;
+    setInterval(update, updateTime);
+    console.log(player.lightDist);
 
     maincanvas.onmousemove = function(event) {
 	// from middle of canvas
-	shipX = event.pageX - cameraX - maincanvas.offsetLeft;
-	shipY = event.pageY - cameraY - maincanvas.offsetTop;
+	player.shipX = event.pageX - player.cameraX - maincanvas.offsetLeft;
+	player.shipY = event.pageY - player.cameraY - maincanvas.offsetTop;
 	/*event.preventDefault();
 	socket.send({x: event.pageX,
 	y: event.pageY}); */

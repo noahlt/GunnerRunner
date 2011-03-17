@@ -1,0 +1,14 @@
+<html>
+
+<head>
+  <title>Gunner Runner - Pilot</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/pilot"></script>
+</head>
+
+<body onload="init();">
+  <button onclick="socket.send('boop!');">hi there</button><br>
+  <canvas id="maincanvas" height="500" width="500" style="border: 1px solid black"></canvas>
+</body>
+
+</html>

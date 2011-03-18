@@ -12,6 +12,7 @@ var drawingContext;
 function drawCircle(context, x, y, r, borderstyle, fillstyle) {
     context.beginPath();
     // syntax reminder: x, y, r, start_angle, end_angle, anticlockwise
+    //console.log(x,y,r);
     context.arc(x, y, r, 0, Math.PI*2, false);
     context.closePath();
     if (fillstyle != null) {
@@ -25,37 +26,70 @@ function drawCircle(context, x, y, r, borderstyle, fillstyle) {
     }
 }
 
-function Gunner() {
+function Indicator(prop) {
     this.lightDist = 1000;
-    this.shipX = 0;
-    this.shipY = 0;
-    this.cameraX = 0;
-    this.cameraY = 0;
-    this.indicatorDist = 1000;
-
-    this.update = function() {
-	initialLineAngle = (initialLineAngle + Math.PI/200) % (Math.PI*2);
-	console.log(this);
-	this.indicatorDist = (this.indicatorDist + 20) % this.lightDist;
-	this.drawTunnel();
-	this.drawTunnelIndicator(this.indicatorDist);
+    this.distance = this.lightDist * prop;
+    this.color = [0,0,0];
+    this.draw = function(shipX, shipY, centerX, centerY) {
+	var proportion = 1 - this.distance/this.lightDist;
+	var indicatorRadius = (proportion) * maxTunnelRadius;   
+	var indicatorX = centerX - (proportion) * shipX;
+	var indicatorY = centerY - (proportion) * shipY;
+	//console.log(indicatorX, indicatorY, indicatorRadius);
+	var color = Math.floor(200-Math.pow(proportion, .5)*200);
+	drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius, 'rgb('+[color, color, color]+')');
     }
 
-    this.drawTunnelIndicator = function(indicatorDist) {
-	var proportion = Math.sqrt(indicatorDist) / Math.sqrt(this.lightDist);
-	var indicatorRadius = (1 - proportion) * maxTunnelRadius;
-	var indicatorX = proportion * -this.shipX + this.cameraX;
-	var indicatorY = proportion * -this.shipY + this.cameraY;
-	drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius, '#999');
+    this.update = function(speed) {
+	if (this.distance == this.lightDist) {
+	    this.distance -= .001*this.lightDist;
+	}
+	//console.log("BEF", this.distance, (this.lightDist - this.distance)/this.lightDist * speed );
+	this.distance = (this.distance - (this.lightDist - this.distance)/this.lightDist * speed ) ;
+	//console.log("AFT",this.distance, (this.lightDist - this.distance)/this.lightDist * speed );
+	return (this.distance > 0);
+    }
+}
+
+
+function Gunner() {
+    this.shipX = 0;
+    this.shipY = 0;
+    this.centerX = 0;
+    this.centerY = 0;
+    this.numIndicators = 50;
+    this.indicators = [];
+    for( var i = 1; i <= this.numIndicators; i++ ) {
+	var indicator = new Indicator(i/this.numIndicators);
+	this.indicators.push(indicator);
+    }
+
+    this.update = function() {
+	initialLineAngle += Math.PI/200;
+	this.drawTunnel();
+	this.drawTunnelIndicators();
+	
+    }
+    
+    this.drawTunnelIndicators = function() {
+	for (var i = 0; i < this.numIndicators; i++) {
+	    var indicator = this.indicators[i];
+	    if (!indicator.update(50))
+		{
+		    //send to other person
+		    indicator.distance = indicator.lightDist*0.99;
+		}
+	    indicator.draw(this.shipX, this.shipY, this.centerX, this.centerY);
+	}
     }
 
     this.drawTunnel = function() { // relative to tunnel center
-	drawingContext.clearRect(0, 0, this.cameraX*2, this.cameraY*2);
+	drawingContext.clearRect(0, 0, this.centerX*2, this.centerY*2);
 
 	// the light is at the end of the tunnel
 	// relative to canvas topleft
-	var lightX = -this.shipX + this.cameraX;
-	var lightY = -this.shipY + this.cameraY;
+	var lightX = this.centerX;
+	var lightY = this.centerY;
 
 	drawCircle(drawingContext, lightX, lightY, 3, '#fff', '#0f0');
 	var angleDiff = Math.PI * 2 / numTunnelLines;
@@ -63,9 +97,14 @@ function Gunner() {
 
 	drawingContext.beginPath();
 	for (var i=0; i < numTunnelLines; i++) {
+	    var edgeX = maxTunnelRadius * Math.cos(currentAngle) 
+		- this.shipX + this.centerX,
+		edgeY = maxTunnelRadius * Math.sin(currentAngle) 
+		- this.shipY + this.centerY;
+	    var triangleWidth = 10;
 	    drawingContext.moveTo(lightX, lightY);
-	    drawingContext.lineTo(maxTunnelRadius * Math.cos(currentAngle) + this.cameraX,
-				  maxTunnelRadius * Math.sin(currentAngle) + this.cameraY);
+	    drawingContext.lineTo(edgeX, edgeY
+				  );
 	    currentAngle += angleDiff;
 	}
 	drawingContext.closePath();
@@ -82,11 +121,9 @@ function update() {
 
 function init() {
     var maincanvas = document.getElementById('maincanvas');
-    // camera is always in the center of canvas
-    // relative to canvas topleft
-    cameraX = maincanvas.height/2;
-    cameraY = maincanvas.width/2;
-    maxTunnelRadius = Math.sqrt(Math.pow(maincanvas.height, 2),
+    centerX = maincanvas.height/2;
+    centerY = maincanvas.width/2;
+    maxTunnelRadius = Math.sqrt(Math.pow(maincanvas.height, 2) +
 				Math.pow(maincanvas.width, 2));
     drawingContext = maincanvas.getContext('2d');
     
@@ -109,15 +146,15 @@ function init() {
 
 
     player = new Gunner();
-    player.cameraX = cameraX;
-    player.cameraY = cameraY;
+    player.centerX = centerX;
+    player.centerY = centerY;
     setInterval(update, updateTime);
     console.log(player.lightDist);
 
     maincanvas.onmousemove = function(event) {
 	// from middle of canvas
-	player.shipX = event.pageX - player.cameraX - maincanvas.offsetLeft;
-	player.shipY = event.pageY - player.cameraY - maincanvas.offsetTop;
+	player.shipX = event.pageX - player.centerX - maincanvas.offsetLeft;
+	player.shipY = event.pageY - player.centerY - maincanvas.offsetTop;
 	/*event.preventDefault();
 	socket.send({x: event.pageX,
 	y: event.pageY}); */

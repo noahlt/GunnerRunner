@@ -2,8 +2,9 @@ var socket;
 var canvasHeight;
 var canvasWidth;
 var maxTunnelRadius;
-var numTunnelLines = 6;
+var numTunnelLines = 7;
 var updateTime = 20;
+var focalDist = 100;
 
 var initialLineAngle = 0;
 var player;
@@ -26,60 +27,40 @@ function drawCircle(context, x, y, r, borderstyle, fillstyle) {
     }
 }
 
-function Indicator(prop) {
-    this.lightDist = 1000;
-    this.distance = this.lightDist * prop;
-    this.color = [0,0,0];
-    this.draw = function(shipX, shipY, centerX, centerY) {
-	var proportion = 1 - this.distance/this.lightDist;
-	var indicatorRadius = (proportion) * maxTunnelRadius;   
-	var indicatorX = centerX - (proportion) * shipX;
-	var indicatorY = centerY - (proportion) * shipY;
-	//console.log(indicatorX, indicatorY, indicatorRadius);
-	var color = Math.floor(200-Math.pow(proportion, .5)*200);
-	drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius, 'rgb('+[color, color, color]+')');
-    }
-
-    this.update = function(speed) {
-	if (this.distance == this.lightDist) {
-	    this.distance -= .001*this.lightDist;
-	}
-	//console.log("BEF", this.distance, (this.lightDist - this.distance)/this.lightDist * speed );
-	this.distance = (this.distance - (this.lightDist - this.distance)/this.lightDist * speed ) ;
-	//console.log("AFT",this.distance, (this.lightDist - this.distance)/this.lightDist * speed );
-	return (this.distance > 0);
-    }
+function adjustFor3D(r, dist) {
+    return r * focalDist / (dist + focalDist);
 }
 
-
 function Gunner() {
+    this.lightDist = 10000;
     this.shipX = 0;
     this.shipY = 0;
     this.centerX = 0;
     this.centerY = 0;
-    this.numIndicators = 50;
-    this.indicators = [];
-    for( var i = 1; i <= this.numIndicators; i++ ) {
-	var indicator = new Indicator(i/this.numIndicators);
-	this.indicators.push(indicator);
-    }
+    this.indicatorDelta = 500; // distance between indicators
+    this.indicatorOffset = 1000; 
+    // distance between us and first indicator
 
     this.update = function() {
-	initialLineAngle += Math.PI/200;
+	initialLineAngle = (initialLineAngle + Math.PI/200) % (Math.PI*2);
 	this.drawTunnel();
 	this.drawTunnelIndicators();
-	
+	this.indicatorOffset = (this.indicatorOffset - 20) ;
+	if (this.indicatorOffset < 0) {
+	    this.indicatorOffset += this.indicatorDelta ;
+	}
     }
     
     this.drawTunnelIndicators = function() {
-	for (var i = 0; i < this.numIndicators; i++) {
-	    var indicator = this.indicators[i];
-	    if (!indicator.update(50))
-		{
-		    //send to other person
-		    indicator.distance = indicator.lightDist*0.99;
-		}
-	    indicator.draw(this.shipX, this.shipY, this.centerX, this.centerY);
+	for (var indicatorDist = this.indicatorOffset;
+	     indicatorDist < this.lightDist;
+	     indicatorDist += this.indicatorDelta) {
+	    var indicatorRadius = adjustFor3D(maxTunnelRadius, indicatorDist);
+	    var indicatorX = this.centerX - adjustFor3D(this.shipX, indicatorDist);
+	    var indicatorY = this.centerY - adjustFor3D(this.shipY, indicatorDist);
+	    var color = Math.floor(200-adjustFor3D(200 ,indicatorDist));
+	    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius, 
+		       'rgb(' + [color,color,color].toString() + ')');
 	}
     }
 
@@ -97,14 +78,9 @@ function Gunner() {
 
 	drawingContext.beginPath();
 	for (var i=0; i < numTunnelLines; i++) {
-	    var edgeX = maxTunnelRadius * Math.cos(currentAngle) 
-		- this.shipX + this.centerX,
-		edgeY = maxTunnelRadius * Math.sin(currentAngle) 
-		- this.shipY + this.centerY;
-	    var triangleWidth = 10;
 	    drawingContext.moveTo(lightX, lightY);
-	    drawingContext.lineTo(edgeX, edgeY
-				  );
+	    drawingContext.lineTo(maxTunnelRadius * Math.cos(currentAngle) - this.shipX + this.centerX,
+				  maxTunnelRadius * Math.sin(currentAngle) - this.shipY + this.centerY);
 	    currentAngle += angleDiff;
 	}
 	drawingContext.closePath();
@@ -153,8 +129,8 @@ function init() {
 
     maincanvas.onmousemove = function(event) {
 	// from middle of canvas
-	player.shipX = event.pageX - player.centerX - maincanvas.offsetLeft;
-	player.shipY = event.pageY - player.centerY - maincanvas.offsetTop;
+	player.shipX = (event.pageX - player.centerX - maincanvas.offsetLeft)*2;
+	player.shipY = (event.pageY - player.centerY - maincanvas.offsetTop)*2;
 	/*event.preventDefault();
 	socket.send({x: event.pageX,
 	y: event.pageY}); */

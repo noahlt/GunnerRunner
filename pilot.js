@@ -31,10 +31,25 @@ function adjustFor3D(r, dist) {
     return r * focalDist / (dist + focalDist);
 }
 
+function DonutBarrier(distance, holeradius) {
+    this.distance = distance;
+    this.holeradius = holeradius;
+    this.draw = function() {
+	
+
+
+    };
+
+
+}
+
+
 function Player(role) {
     this.lightDist = 10000;
     this.shipX = 0;
     this.shipY = 0;
+    this.mouseX = 0;
+    this.mouseY = 0;
     this.centerX = 0;
     this.centerY = 0;
     this.indicatorDelta = 500; // distance between indicators
@@ -45,6 +60,7 @@ function Player(role) {
 
     this.update = function() {
 	initialLineAngle = (initialLineAngle + Math.PI/200) % (Math.PI*2);
+	this.clear();
 	this.drawTunnel();
 	this.drawTunnelIndicators();
 	this.indicatorOffset = (this.indicatorOffset - this.shipVel) ;
@@ -54,9 +70,9 @@ function Player(role) {
 	    this.indicatorOffset -= this.indicatorDelta;
 	}
 	this.updateRole();
-    }
+    };
 
-    this.updateRole = function() {}
+    this.updateRole = function() {};
 	
     
     this.drawTunnelIndicators = function() {
@@ -72,12 +88,14 @@ function Player(role) {
 		       (indicatorDist+this.indicatorDelta>=this.lightDist)?'rgb(' + [color,color,color].toString() + ')':null );
 	}
 	
-    }
-
-    this.drawTunnel = function() { // relative to tunnel center
+    };
+    
+    this.clear = function() {
 	drawingContext.clearRect(0, 0, this.centerX*2, this.centerY*2);
+    };
 
-	// the light is at the end of the tunnel
+    this.drawTunnel = function() { 
+	// the light is at the end of the tunnel (at infinity
 	// relative to canvas topleft
 	var lightX = this.centerX;
 	var lightY = this.centerY;
@@ -97,10 +115,11 @@ function Player(role) {
 	drawingContext.lineWidth = 1;
 	drawingContext.strokeStyle = '#444';
 	drawingContext.stroke();
-    }
+    };
     
 
 }
+
 function update() {
     player.update();
 }
@@ -158,10 +177,10 @@ function init() {
 	var accelerating = false;
 	var acceleration = .5;
 	maincanvas.onmousemove = function(event) {
-	    // from middle of canvas
-	    player.shipX = (event.pageX - player.centerX - maincanvas.offsetLeft)*2;
-	    player.shipY = (event.pageY - player.centerY - maincanvas.offsetTop)*2;
 	    event.preventDefault();	
+	    // from middle of canvas
+	    player.mouseX = (event.pageX - player.centerX - maincanvas.offsetLeft)*2;
+	    player.mouseY = (event.pageY - player.centerY - maincanvas.offsetTop)*2;
 	}
 	
 	maincanvas.onmousedown = function(event) {
@@ -172,12 +191,22 @@ function init() {
 	    accelerating = false;
 	}
 	player.updateRole = function() {
+	    var clippingSpeed = 50;
+	    var mouseTrailProp = .25*Math.min(player.shipVel, clippingSpeed)/clippingSpeed;
+	    player.shipX = player.mouseX * mouseTrailProp +
+	                   player.shipX * (1 - mouseTrailProp);
+	    player.shipY = player.mouseY * mouseTrailProp +
+	                   player.shipY * (1 - mouseTrailProp);
+
+	    //console.log(player.mouseX, player.shipX, mouseTrailProp);
+	    
 	    socket.send({shipX: this.shipX,
 			 shipY: this.shipY,
 			 shipVel: this.shipVel});
 	    player.shipVel *= .99;
-	    if (accelerating)
+	    if (accelerating) {
 		player.shipVel += acceleration;
+	    }
 	}
     }
 

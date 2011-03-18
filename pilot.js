@@ -31,7 +31,7 @@ function adjustFor3D(r, dist) {
     return r * focalDist / (dist + focalDist);
 }
 
-function Gunner() {
+function Player() {
     this.lightDist = 10000;
     this.shipX = 0;
     this.shipY = 0;
@@ -40,12 +40,13 @@ function Gunner() {
     this.indicatorDelta = 500; // distance between indicators
     this.indicatorOffset = 1000; 
     // distance between us and first indicator
+    this.shipVel = 20;
 
     this.update = function() {
 	initialLineAngle = (initialLineAngle + Math.PI/200) % (Math.PI*2);
 	this.drawTunnel();
 	this.drawTunnelIndicators();
-	this.indicatorOffset = (this.indicatorOffset - 20) ;
+	this.indicatorOffset = (this.indicatorOffset - this.shipVel) ;
 	if (this.indicatorOffset < 0) {
 	    this.indicatorOffset += this.indicatorDelta ;
 	}
@@ -60,8 +61,10 @@ function Gunner() {
 	    var indicatorY = this.centerY - adjustFor3D(this.shipY, indicatorDist);
 	    var color = Math.floor(200-adjustFor3D(200 ,indicatorDist));
 	    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius, 
-		       'rgb(' + [color,color,color].toString() + ')');
+		       'rgb(' + [color,color,color].toString() + ')', 
+		       (indicatorDist+this.indicatorDelta>=this.lightDist)?'rgb(' + [color,color,color].toString() + ')':null );
 	}
+	
     }
 
     this.drawTunnel = function() { // relative to tunnel center
@@ -97,8 +100,8 @@ function update() {
 
 function init() {
     var maincanvas = document.getElementById('maincanvas');
-    centerX = maincanvas.height/2;
-    centerY = maincanvas.width/2;
+    centerY = maincanvas.height/2;
+    centerX = maincanvas.width/2;
     maxTunnelRadius = Math.sqrt(Math.pow(maincanvas.height, 2) +
 				Math.pow(maincanvas.width, 2));
     drawingContext = maincanvas.getContext('2d');
@@ -121,11 +124,12 @@ function init() {
 	});
 
 
-    player = new Gunner();
+    player = new Player();
+
     player.centerX = centerX;
     player.centerY = centerY;
     setInterval(update, updateTime);
-    console.log(player.lightDist);
+    
 
     maincanvas.onmousemove = function(event) {
 	// from middle of canvas

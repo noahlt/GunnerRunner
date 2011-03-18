@@ -44,12 +44,12 @@ var gunnerTaken = false;
 
 socket.on('connection', function(client) {
 	if (!pilotTaken) {
-	    client.send('pilot');
+	    client.send({'role': 'pilot'});
 	    client.role = 'pilot';
 	    pilotTaken = true;
 	    console.log('PILOT CONNECTED');
 	} else if (!gunnerTaken) {
-	    client.send('gunner');
+	    client.send({'role': 'gunner'});
 	    client.role = 'gunner';
 	    gunnerTaken = true;
 	    console.log('GUNNER CONNECTED');
@@ -58,16 +58,16 @@ socket.on('connection', function(client) {
 	}
 
 	if (pilotTaken && gunnerTaken) {
-	    client.send('GAME START!');
-	    client.broadcast('GAME START!');
+	    client.send({'gameStart': true});
+	    client.broadcast({'gameStart': true});
 	}
 
 	client.on('message', function(event) {
 		client.broadcast(event);
-		console.log('client message: ' + event);
+		//console.log('client message: ' + event);
 	    });
 	client.on('disconnect', function(event) {
-		console.log("client disconnect :'-(");
+		console.log('our ' + client.role + " disconnected :'-(");
 		if (client.role === 'pilot') {
 		    pilotTaken = false;
 		} else if (client.role === 'gunner') {

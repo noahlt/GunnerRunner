@@ -31,7 +31,7 @@ function adjustFor3D(r, dist) {
     return r * focalDist / (dist + focalDist);
 }
 
-function Player() {
+function Player(role) {
     this.lightDist = 10000;
     this.shipX = 0;
     this.shipY = 0;
@@ -41,6 +41,7 @@ function Player() {
     this.indicatorOffset = 1000; 
     // distance between us and first indicator
     this.shipVel = 20;
+    this.role = role; //set from socket.io
 
     this.update = function() {
 	initialLineAngle = (initialLineAngle + Math.PI/200) % (Math.PI*2);
@@ -48,9 +49,15 @@ function Player() {
 	this.drawTunnelIndicators();
 	this.indicatorOffset = (this.indicatorOffset - this.shipVel) ;
 	if (this.indicatorOffset < 0) {
-	    this.indicatorOffset += this.indicatorDelta ;
+	    this.indicatorOffset += this.indicatorDelta;
+	} else if (this.indicatorOffset > this.indicatorDelta) {
+	    this.indicatorOffset -= this.indicatorDelta;
 	}
+	this.updateRole();
     }
+
+    this.updateRole = function() {}
+	
     
     this.drawTunnelIndicators = function() {
 	for (var indicatorDist = this.indicatorOffset;
@@ -100,6 +107,7 @@ function update() {
 
 function init() {
     var maincanvas = document.getElementById('maincanvas');
+    var updateIntervalId;
     centerY = maincanvas.height/2;
     centerX = maincanvas.width/2;
     maxTunnelRadius = Math.sqrt(Math.pow(maincanvas.height, 2) +
@@ -116,7 +124,23 @@ function init() {
 	});
 
     socket.on('message', function(evt) {
-	    drawCircle(drawingContext, evt.x, evt.y, 5, '#fff', '#f00');
+	    if ('role' in evt) {//we got a thing to tell us what role we be
+		player.role = evt.role;
+		if (player.role == 'pilot') {
+		    initPilot();
+		}
+		console.log('I AM THE ' + player.role + ' F**** YEAH!!!');
+	    } else if ('gameStart' in evt) {
+		clearInterval(updateIntervalId);
+		updateIntervalId = setInterval(update, updateTime);
+	    } else if ('shipX' in evt) {
+		//drawCircle(drawingContext, evt.shipX, evt.shipY, 5, '#fff', '#f00');
+		if (player.role == 'gunner') {
+		    player.shipX = -evt.shipX;
+		    player.shipY = evt.shipY;
+		    player.shipVel = -evt.shipVel;
+		}
+	    } 
 	});
 
     socket.on('disconnect', function() {
@@ -128,16 +152,34 @@ function init() {
 
     player.centerX = centerX;
     player.centerY = centerY;
-    setInterval(update, updateTime);
+    updateIntervalId = setInterval(update, updateTime);
     
-
-    maincanvas.onmousemove = function(event) {
-	// from middle of canvas
-	player.shipX = (event.pageX - player.centerX - maincanvas.offsetLeft)*2;
-	player.shipY = (event.pageY - player.centerY - maincanvas.offsetTop)*2;
-	/*event.preventDefault();
-	socket.send({x: event.pageX,
-	y: event.pageY}); */
+    function initPilot() {
+	var accelerating = false;
+	var acceleration = .5;
+	maincanvas.onmousemove = function(event) {
+	    // from middle of canvas
+	    player.shipX = (event.pageX - player.centerX - maincanvas.offsetLeft)*2;
+	    player.shipY = (event.pageY - player.centerY - maincanvas.offsetTop)*2;
+	    event.preventDefault();	
+	}
+	
+	maincanvas.onmousedown = function(event) {
+	    accelerating = true;
+	    console.log(player.shipVel);
+	}
+	maincanvas.onmouseup = function(event) {
+	    accelerating = false;
+	}
+	player.updateRole = function() {
+	    socket.send({shipX: this.shipX,
+			 shipY: this.shipY,
+			 shipVel: this.shipVel});
+	    player.shipVel *= .99;
+	    if (accelerating)
+		player.shipVel += acceleration;
+	}
     }
-}
 
+    
+}

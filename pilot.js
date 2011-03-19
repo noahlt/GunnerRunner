@@ -226,6 +226,9 @@ function init() {
 	    // from middle of canvas
 	    player.mouseX = (event.pageX - player.centerX - maincanvas.offsetLeft)*2;
 	    player.mouseY = (event.pageY - player.centerY - maincanvas.offsetTop)*2;
+	    //correct for non-square canvases
+	    player.mouseX = player.mouseX/player.centerX * maxTunnelRadius;
+	    player.mouseY = player.mouseY/player.centerY * maxTunnelRadius;
 	};
 
 	maincanvas.onmousedown = function(event) {

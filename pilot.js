@@ -35,7 +35,7 @@ function DonutBarrier(distance, holeradius) {
     this.distance = distance;
     this.holeradius = holeradius;
     this.draw = function() {
-	
+
 
 
     };
@@ -53,7 +53,7 @@ function Player(role) {
     this.centerX = 0;
     this.centerY = 0;
     this.indicatorDelta = 500; // distance between indicators
-    this.indicatorOffset = 1000; 
+    this.indicatorOffset = 1000;
     // distance between us and first indicator
     this.shipVel = 20;
     this.role = role; //set from socket.io
@@ -73,8 +73,8 @@ function Player(role) {
     };
 
     this.updateRole = function() {};
-	
-    
+
+
     this.drawTunnelIndicators = function() {
 	for (var indicatorDist = this.indicatorOffset;
 	     indicatorDist < this.lightDist;
@@ -83,18 +83,18 @@ function Player(role) {
 	    var indicatorX = this.centerX - adjustFor3D(this.shipX, indicatorDist);
 	    var indicatorY = this.centerY - adjustFor3D(this.shipY, indicatorDist);
 	    var color = Math.floor(200-adjustFor3D(200 ,indicatorDist));
-	    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius, 
-		       'rgb(' + [color,color,color].toString() + ')', 
+	    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius,
+		       'rgb(' + [color,color,color].toString() + ')',
 		       (indicatorDist+this.indicatorDelta>=this.lightDist)?'rgb(' + [color,color,color].toString() + ')':null );
 	}
-	
+
     };
-    
+
     this.clear = function() {
 	drawingContext.clearRect(0, 0, this.centerX*2, this.centerY*2);
     };
 
-    this.drawTunnel = function() { 
+    this.drawTunnel = function() {
 	// the light is at the end of the tunnel (at infinity
 	// relative to canvas topleft
 	var lightX = this.centerX;
@@ -103,20 +103,32 @@ function Player(role) {
 	drawCircle(drawingContext, lightX, lightY, 3, '#fff', '#0f0');
 	var angleDiff = Math.PI * 2 / numTunnelLines;
 	var currentAngle = initialLineAngle;
-
+	var beginTunnelRadius = adjustFor3D(maxTunnelRadius,0);
 	drawingContext.beginPath();
 	for (var i=0; i < numTunnelLines; i++) {
 	    drawingContext.moveTo(lightX, lightY);
-	    drawingContext.lineTo(maxTunnelRadius * Math.cos(currentAngle) - this.shipX + this.centerX,
-				  maxTunnelRadius * Math.sin(currentAngle) - this.shipY + this.centerY);
+
+	    drawingContext.lineTo(beginTunnelRadius * Math.cos(currentAngle)
+				  - this.shipX + this.centerX,
+				  beginTunnelRadius * Math.sin(currentAngle)
+				  - this.shipY + this.centerY);
 	    currentAngle += angleDiff;
 	}
 	drawingContext.closePath();
 	drawingContext.lineWidth = 1;
 	drawingContext.strokeStyle = '#444';
 	drawingContext.stroke();
+	/*
+	drawingContext.fillStyle = '#000';
+	drawingContext.fillRect(0, 0, player.centerX * 2, player.centerY * 2);
+	drawingContext.globalCompositeOperation = 'destination-out';
+	drawCircle(drawingContext, this.centerX - this.shipX,
+		   this.centerY - this.shipY, beginTunnelRadius,
+		   '#000', '#000');
+	drawingContext.globalCompositeOperation = 'source-over';*/
     };
-    
+
+
 
 }
 
@@ -127,44 +139,43 @@ function update() {
 function init() {
     var maincanvas = document.getElementById('maincanvas');
     var updateIntervalId;
-    centerY = maincanvas.height/2;
-    centerX = maincanvas.width/2;
+    var centerY = maincanvas.height/2;
+    var centerX = maincanvas.width/2;
     maxTunnelRadius = Math.sqrt(Math.pow(maincanvas.height, 2) +
 				Math.pow(maincanvas.width, 2));
     drawingContext = maincanvas.getContext('2d');
-    
 
-    socket = new io.Socket('10.41.64.64', {port: 8080});
+    socket = new io.Socket(window.location.hostname, {port: 8080});
 
     socket.connect();
 
     socket.on('connect', function(evt) {
-	    console.log(evt);
-	});
+		  console.log(evt);
+	      });
 
     socket.on('message', function(evt) {
-	    if ('role' in evt) {//we got a thing to tell us what role we be
-		player.role = evt.role;
-		if (player.role == 'pilot') {
-		    initPilot();
-		}
-		console.log('I AM THE ' + player.role + ' F**** YEAH!!!');
-	    } else if ('gameStart' in evt) {
-		clearInterval(updateIntervalId);
-		updateIntervalId = setInterval(update, updateTime);
-	    } else if ('shipX' in evt) {
-		//drawCircle(drawingContext, evt.shipX, evt.shipY, 5, '#fff', '#f00');
-		if (player.role == 'gunner') {
-		    player.shipX = -evt.shipX;
-		    player.shipY = evt.shipY;
-		    player.shipVel = -evt.shipVel;
-		}
-	    } 
-	});
+		  if ('role' in evt) {//we got a thing to tell us what role we be
+		      player.role = evt.role;
+		      if (player.role == 'pilot') {
+			  initPilot();
+		      }
+		      console.log('I AM THE ' + player.role + ' F**** YEAH!!!');
+		  } else if ('gameStart' in evt) {
+		      clearInterval(updateIntervalId);
+		      updateIntervalId = setInterval(update, updateTime);
+		  } else if ('shipX' in evt) {
+		      //drawCircle(drawingContext, evt.shipX, evt.shipY, 5, '#fff', '#f00');
+		      if (player.role == 'gunner') {
+			  player.shipX = -evt.shipX;
+			  player.shipY = evt.shipY;
+			  player.shipVel = -evt.shipVel;
+		      }
+		  }
+	      });
 
     socket.on('disconnect', function() {
-	    alert('client disconnect');
-	});
+		  alert('client disconnect');
+	      });
 
 
     player = new Player();
@@ -172,34 +183,48 @@ function init() {
     player.centerX = centerX;
     player.centerY = centerY;
     updateIntervalId = setInterval(update, updateTime);
-    
+    disallowSelecting();
+
     function initPilot() {
 	var accelerating = false;
 	var acceleration = .5;
+	var wentOutAccelerating = false;
+
 	maincanvas.onmousemove = function(event) {
-	    event.preventDefault();	
+	    event.preventDefault();
 	    // from middle of canvas
 	    player.mouseX = (event.pageX - player.centerX - maincanvas.offsetLeft)*2;
 	    player.mouseY = (event.pageY - player.centerY - maincanvas.offsetTop)*2;
-	}
-	
+	};
+
 	maincanvas.onmousedown = function(event) {
+	    event.preventDefault();
 	    accelerating = true;
 	    console.log(player.shipVel);
-	}
+	};
 	maincanvas.onmouseup = function(event) {
+	    event.preventDefault();
 	    accelerating = false;
-	}
+	};
+	maincanvas.onmouseout = function(event) {
+	    event.preventDefault();
+	    wentOutAccelerating = accelerating;
+	    accelerating = false;
+	};
+	maincanvas.onmouseover = function(event) {
+	    event.preventDefault();
+	    accelerating = wentOutAccelerating;
+	};
 	player.updateRole = function() {
 	    var clippingSpeed = 50;
 	    var mouseTrailProp = .25*Math.min(player.shipVel, clippingSpeed)/clippingSpeed;
 	    player.shipX = player.mouseX * mouseTrailProp +
-	                   player.shipX * (1 - mouseTrailProp);
+		player.shipX * (1 - mouseTrailProp);
 	    player.shipY = player.mouseY * mouseTrailProp +
-	                   player.shipY * (1 - mouseTrailProp);
+		player.shipY * (1 - mouseTrailProp);
 
 	    //console.log(player.mouseX, player.shipX, mouseTrailProp);
-	    
+
 	    socket.send({shipX: this.shipX,
 			 shipY: this.shipY,
 			 shipVel: this.shipVel});
@@ -207,8 +232,25 @@ function init() {
 	    if (accelerating) {
 		player.shipVel += acceleration;
 	    }
-	}
+	};
     }
 
-    
+    function disallowSelecting() {
+	maincanvas.onmousemove = function(event) {
+	    event.preventDefault();
+	};
+
+	maincanvas.onmousedown = function(event) {
+	    event.preventDefault();
+	};
+	maincanvas.onmouseup = function(event) {
+	    event.preventDefault();
+	};
+	maincanvas.onmouseout = function(event) {
+	    event.preventDefault();
+	};
+	maincanvas.onmouseover = function(event) {
+	    event.preventDefault();
+	};
+    }
 }

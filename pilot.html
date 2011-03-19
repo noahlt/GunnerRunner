@@ -7,8 +7,11 @@
 </head>
 
 <body onload="init();">
+  <style> 
+    canvas#maincanvas{cursor:none;}
+  </style>
   <button onclick="socket.send('boop!');">hi there</button><br>
-  <canvas id="maincanvas" height="500" width="1000" style="border: 1px solid black"></canvas>
+  <canvas id="maincanvas" height="500" width="500" style="border: 1px solid black"></canvas>
 </body>
 
 </html>

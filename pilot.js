@@ -12,6 +12,9 @@ var drawingContext;
 
 function drawCircle(context, x, y, r, borderstyle, fillstyle) {
     context.beginPath();
+    // we could use  a better system.
+    // can I set up context before the call?
+    // seperate strokeCircle, fillCircle calls? JSON object?
     // syntax reminder: x, y, r, start_angle, end_angle, anticlockwise
     //console.log(x,y,r);
     context.arc(x, y, r, 0, Math.PI*2, false);
@@ -20,7 +23,7 @@ function drawCircle(context, x, y, r, borderstyle, fillstyle) {
 	context.fillStyle = fillstyle;
     }
     context.strokeStyle = borderstyle;
-    context.lineWidth = 2;
+    context.lineWidth = 1;
     context.stroke();
     if (fillstyle != null) {
 	context.fill();
@@ -83,6 +86,7 @@ function Player(role) {
 	    var indicatorX = this.centerX - adjustFor3D(this.shipX, indicatorDist);
 	    var indicatorY = this.centerY - adjustFor3D(this.shipY, indicatorDist);
 	    var color = Math.floor(200-adjustFor3D(200 ,indicatorDist));
+
 	    drawCircle(drawingContext, indicatorX, indicatorY, indicatorRadius,
 		       'rgb(' + [color,color,color].toString() + ')',
 		       (indicatorDist+this.indicatorDelta>=this.lightDist)?'rgb(' + [color,color,color].toString() + ')':null );
@@ -103,29 +107,55 @@ function Player(role) {
 	drawCircle(drawingContext, lightX, lightY, 3, '#fff', '#0f0');
 	var angleDiff = Math.PI * 2 / numTunnelLines;
 	var currentAngle = initialLineAngle;
-	var beginTunnelRadius = adjustFor3D(maxTunnelRadius,0);
+	var beginTunnelRadius = adjustFor3D(maxTunnelRadius, 0);
+	var triangleWidth = 10;
+
+	// draw the frame thing
+	drawingContext.fillStyle = '#000';
+	drawingContext.fillRect(0, 0, player.centerX * 2, player.centerY * 2);
+	drawingContext.globalCompositeOperation = 'destination-out';
+	//want to clear out the center hole for the tunnel
+	drawCircle(drawingContext, this.centerX - this.shipX,
+		   this.centerY - this.shipY, beginTunnelRadius - 1,
+		   '#000', '#000');
+	drawingContext.globalCompositeOperation = 'source-over';
+	//now want everything else to draw default
+
+	//Now to draw triangles! give depth perception
 	drawingContext.beginPath();
 	for (var i=0; i < numTunnelLines; i++) {
 	    drawingContext.moveTo(lightX, lightY);
+	    var triangleAngle = currentAngle + Math.PI/2;
+	    var lineEndX = beginTunnelRadius * Math.cos(currentAngle)
+		- this.shipX + this.centerX,
+	    lineEndY = beginTunnelRadius * Math.sin(currentAngle)
+		- this.shipY + this.centerY,
+	    triangleBaseX = triangleWidth * Math.cos(triangleAngle),
+	    triangleBaseY = triangleWidth * Math.sin(triangleAngle);
 
+	    drawingContext.lineTo(lineEndX + triangleBaseX,
+				  lineEndY + triangleBaseY
+				  );
+	    drawingContext.lineTo(lineEndX - triangleBaseX,
+				  lineEndY - triangleBaseY
+				  );
+	    drawingContext.lineTo(lightX, lightY);
+	    /* this is just lines. I'll save this for now.
 	    drawingContext.lineTo(beginTunnelRadius * Math.cos(currentAngle)
 				  - this.shipX + this.centerX,
 				  beginTunnelRadius * Math.sin(currentAngle)
 				  - this.shipY + this.centerY);
+	     */
 	    currentAngle += angleDiff;
 	}
 	drawingContext.closePath();
 	drawingContext.lineWidth = 1;
 	drawingContext.strokeStyle = '#444';
+	drawingContext.fillStyle = drawingContext.strokeStyle;
 	drawingContext.stroke();
+	drawingContext.fill();
 	/*
-	drawingContext.fillStyle = '#000';
-	drawingContext.fillRect(0, 0, player.centerX * 2, player.centerY * 2);
-	drawingContext.globalCompositeOperation = 'destination-out';
-	drawCircle(drawingContext, this.centerX - this.shipX,
-		   this.centerY - this.shipY, beginTunnelRadius,
-		   '#000', '#000');
-	drawingContext.globalCompositeOperation = 'source-over';*/
+	*/
     };
 
 
@@ -141,8 +171,9 @@ function init() {
     var updateIntervalId;
     var centerY = maincanvas.height/2;
     var centerX = maincanvas.width/2;
-    maxTunnelRadius = Math.sqrt(Math.pow(maincanvas.height, 2) +
-				Math.pow(maincanvas.width, 2));
+    /*maxTunnelRadius = Math.sqrt(Math.pow(maincanvas.height, 2) +
+				Math.pow(maincanvas.width, 2));*/
+    maxTunnelRadius = Math.max( maincanvas.height, maincanvas.width);
     drawingContext = maincanvas.getContext('2d');
 
     socket = new io.Socket(window.location.hostname, {port: 8080});
@@ -217,18 +248,27 @@ function init() {
 	};
 	player.updateRole = function() {
 	    var clippingSpeed = 50;
-	    var mouseTrailProp = .25*Math.min(player.shipVel, clippingSpeed)/clippingSpeed;
+	    var mouseTrailProp = .25
+		*Math.min(player.shipVel, clippingSpeed)/clippingSpeed;
+	    //a noncontinuous linear hack for a logarithmic or -a/x-b curve
 	    player.shipX = player.mouseX * mouseTrailProp +
 		player.shipX * (1 - mouseTrailProp);
 	    player.shipY = player.mouseY * mouseTrailProp +
 		player.shipY * (1 - mouseTrailProp);
-
+	    var shipPositionRadius = Math.sqrt(
+					 Math.pow(player.shipX, 2)
+					     + Math.pow( player.shipY, 2));
+	    if ( shipPositionRadius
+		> maxTunnelRadius) {
+		player.shipX *= maxTunnelRadius / shipPositionRadius;
+		player.shipY *= maxTunnelRadius / shipPositionRadius;
+	    }
 	    //console.log(player.mouseX, player.shipX, mouseTrailProp);
 
 	    socket.send({shipX: this.shipX,
 			 shipY: this.shipY,
 			 shipVel: this.shipVel});
-	    player.shipVel *= .99;
+	    player.shipVel *= .99;//hard-coded friction
 	    if (accelerating) {
 		player.shipVel += acceleration;
 	    }

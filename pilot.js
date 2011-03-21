@@ -109,7 +109,7 @@ function Barrier() {
 	var startAngle = Math.PI/2;
 	var arc = Math.PI *2/ colors.length;
 	var ctx=drawingContext;
-	drawRouletteWheel();
+	//drawRouletteWheel();
 	function drawRouletteWheel() {
 
 

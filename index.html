@@ -3,15 +3,17 @@
 <head>
   <title>Gunner Runner - Pilot</title>
   <script src="/socket.io/socket.io.js"></script>
+  <script src="jquery.min.js"></script>
   <script src="pilot.js"></script>
+  <style> 
+    canvas#maincanvas{/*cursor:none;*/ position: absolute; }
+    body, html,canvas { margin: 0; padding: 0; }
+  </style>
 </head>
 
 <body onload="init();">
-  <style> 
-    canvas#maincanvas{cursor:none;}
-  </style>
-  <button onclick="socket.send('boop!');">hi there</button><br>
-  <canvas id="maincanvas" height="500" width="1000" style="border: 1px solid black"></canvas>
+  
+  <canvas id="maincanvas"></canvas>
 </body>
 
 </html>

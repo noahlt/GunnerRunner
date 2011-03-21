@@ -158,7 +158,7 @@ function Player(role) {
     // distance between us and first indicator
     this.shipVel = 20;
     this.role = role; //set from socket.io
-    this.barriers = [new Barrier()];
+    this.barriers = [];
 
     this.update = function() {
 

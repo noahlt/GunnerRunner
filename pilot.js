@@ -46,23 +46,6 @@ function Barrier() {
   this.barrierDist = lightDist;
 
   this.draw = function(cameraX, cameraY) {
-    /*var startAngle = Math.PI/2;
-    var outerArc = Math.PI * 2;// colors.length;
-    var innerArc = Math.PI * 2 - 0.01;
-    var ctx = drawingContext;
-    var outsideRadius = 200;
-    var insideRadius = 125;
-
-    ctx.strokeStyle = "black";
-    ctx.lineWidth = 2;
-
-    ctx.fillStyle = "#B8D430";
-
-    ctx.beginPath();
-    ctx.arc(250, 250, outsideRadius, 0, outerArc, false);
-    ctx.moveTo(250 + insideRadius, 250);
-    ctx.arc(250, 250, insideRadius, innerArc, 0, true);
-      */
     var barrierRadius = adjustFor3D(maxTunnelRadius, this.barrierDist);
       var barrierX = centerX
 	- adjustFor3D(cameraX, this.barrierDist);
@@ -80,16 +63,12 @@ function Barrier() {
     drawingContext.arc(barrierX, barrierY, barrierRadius, 0, Math.PI * 2, false);
     drawingContext.moveTo(barrierX + barrierRadius/2, barrierY);
     drawingContext.arc(barrierX, barrierY, barrierRadius/2,  Math.PI * 2 - 0.01, 0,true);
-    //ctx.stroke();
     drawingContext.fill();
   };
 
   this.update = function(vel) {
 
     this.barrierDist = this.barrierDist - vel;
-    //console.log('Updating:'+this.barrierDist);
-    //return barrierDist;
-    //forget it. We'll grab barrier.barrierDist
   };
 }
 
